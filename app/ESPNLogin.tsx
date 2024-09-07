@@ -1,12 +1,17 @@
 import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
 import { StyleSheet } from 'react-native';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 
 export default function ESPNLogin() {
     const webViewRef = useRef<WebView | null>(null);
     const router = useRouter();
+
+    useEffect(() => {
+      // Clear cookies when component mounts
+      webViewRef.current?.clearCache?.(true);
+  }, []);
     
     const handleNavigationStateChange = (navState: WebViewNavigation) => {
       if (navState.url === 'https://www.espn.com/') {
@@ -24,8 +29,11 @@ export default function ESPNLogin() {
 
       cookiePairs.forEach(pair => {
         const [key, value] = pair.split('=');
-        if (key === 'SWID' || key === 'espn_s2') {
+        if (key === 'SWID') {
           extractedCookies[key] = value;
+        } else if (key === 'espn_s2') {
+          // URL decode the espn_s2 cookie
+          extractedCookies[key] = decodeURIComponent(value);
         }
       });
 
@@ -44,6 +52,10 @@ export default function ESPNLogin() {
           source={{ uri: 'https://espn.com/login' }}
           onNavigationStateChange={handleNavigationStateChange}
           onMessage={handleMessage}
+          incognito={true}  // Use incognito mode
+          thirdPartyCookiesEnabled={false}  // Disable third-party cookies
+          sharedCookiesEnabled={false}  // Disable shared cookies
+          cacheEnabled={false}  // Disable caching
         />
       );
     }
