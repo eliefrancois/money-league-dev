@@ -24,6 +24,7 @@ export default function ESPNLogin() {
 
     const handleMessage = async (event: WebViewMessageEvent) => {
       const cookieString = event.nativeEvent.data;
+      console.log("in handleMessage(), Cookie String", cookieString);
       const cookiePairs = cookieString.split('; ');
       const extractedCookies: { SWID?: string, espn_s2?: string } = {};
 
@@ -39,6 +40,7 @@ export default function ESPNLogin() {
 
       // Store cookies securely
       await SecureStore.setItemAsync('espnCookies', JSON.stringify(extractedCookies));
+      console.log("Cookies saved to secure store");
 
       // Navigate back to the previous screen
       router.back();
