@@ -9,7 +9,7 @@ export async function GET(request: Request) {
             return Response.json({ error: 'SWID and espn_s2 are required' }, { status: 400 });
         }
 
-        const response = await fetch(`${FLASK_API_BASE_URL}/api/all-leagues`, {
+        const response = await fetch(`${FLASK_API_BASE_URL}/api/user-leagues`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

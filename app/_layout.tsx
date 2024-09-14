@@ -54,6 +54,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         <Stack.Screen name="ESPNLogin" options={{ headerShown: true }} />
+        <Stack.Screen name="league/[leagueId]" options={{ headerShown: true, title: 'Add Your League Details', presentation: 'modal' }} />
       </Stack>
     </ThemeProvider>
   );
