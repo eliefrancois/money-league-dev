@@ -1,12 +1,25 @@
 import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
 import { StyleSheet } from 'react-native';
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ESPNLogin() {
     const webViewRef = useRef<WebView | null>(null);
     const router = useRouter();
+
+    useFocusEffect(() => {
+      const clearCookiesAndData = async () => {
+          console.log("Clearing existing cookies and league data");
+          await SecureStore.deleteItemAsync('espnCookies');
+          await AsyncStorage.removeItem('leagueData');
+          await AsyncStorage.removeItem('leagueDataUser');
+          webViewRef.current?.clearCache?.(true);
+      };
+
+      clearCookiesAndData();
+  });
 
     useEffect(() => {
       // Clear cookies when component mounts

@@ -1,10 +1,12 @@
-import { Button, StyleSheet } from 'react-native';
+import { Button, ScrollView, StyleSheet } from 'react-native';
 import { Text, View } from '@/components/Themed';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { League, RawPreference, RawUserLeaguesData, UserLeaguesData } from '../api/types/getAllLeaguesAPITypes';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LeagueCard } from '@/components/LeagueCard';
+import Toast from 'react-native-toast-message';
 
 
 export default function TabOneScreen() {
@@ -27,7 +29,26 @@ export default function TabOneScreen() {
     setError(null);
     try {
       console.log("in fetchAndParseLeagueData() calling Flask API");
+      console.log("storedCookies:", storedCookies);
       const parsedCookies = JSON.parse(storedCookies);
+
+      if (!parsedCookies.SWID || !parsedCookies.espn_s2) {
+        console.log("Missing SWID or espn_s2 cookie.");
+        // Show a toast notification
+        // Note: You'll need to import and set up a toast library like react-native-toast-message
+        Toast.show({
+          type: 'info',
+          text1: 'Login Required',
+          text2: 'You need to log in to ESPN again. Redirecting...',
+          visibilityTime: 3000,
+          autoHide: true,
+          onHide: () => {
+            // Redirect to ESPNLogin after the toast is hidden
+            router.push('/ESPNLogin');
+          }
+        });
+        return;
+      }
       const response = await fetch('/api/getAllLeagues', {
         headers: {
           'X-SWID': parsedCookies.SWID,
@@ -69,12 +90,21 @@ export default function TabOneScreen() {
   
         const storedLeagueData = await AsyncStorage.getItem('leagueData');
         const storedLeagueDataUser = await AsyncStorage.getItem('leagueDataUser');
+
+        console.log("Stored league data:", storedLeagueData);
+        console.log("Stored league data user:", storedLeagueDataUser);
+        console.log("Parsed cookies SWID:", parsedCookies.SWID);
+        console.log("typeof storedLeagueData:", typeof storedLeagueData);
+
+        const condition = (storedLeagueData != null) && (storedLeagueData !== "null") && (storedLeagueDataUser === parsedCookies.SWID); //if true, league data is in Async Storage and user is the same as when the league data was saved 
+        console.log("Condition result:", condition);
         
-        if ((storedLeagueData) && (storedLeagueDataUser === parsedCookies.SWID)) {
+        
+        if ((storedLeagueData != null) && (storedLeagueData !== "null") && (storedLeagueDataUser === parsedCookies.SWID)) {
           console.log("League Data Found in Async Storage, setting league data", storedLeagueData);
           setLeagueData(JSON.parse(storedLeagueData));
-        } 
-        else {
+        }
+        else if ((storedLeagueData == null) || (storedLeagueData === "null") || (storedLeagueDataUser !== parsedCookies.SWID)) {
           console.log("Fetching League Data calling fetchAndParseLeagueData()");
           await fetchAndParseLeagueData(storedCookies);
         }
@@ -152,85 +182,54 @@ export default function TabOneScreen() {
       }
     };
   };
-
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     async function checkLoginStatus() {
-  //       const storedCookies = await SecureStore.getItemAsync('espnCookies');
-  //       if (storedCookies) {
-
-  //         console.log("Cookies",storedCookies);
-  //         console.log("SWID  ",JSON.parse(storedCookies).SWID);
-  //         console.log("espn_s2  ",JSON.parse(storedCookies).espn_s2);
-  //         console.log("Calling Flask API");
-  //         const response = await fetch('/api/getAllLeagues', {
-  //           headers: {
-  //             'X-SWID': JSON.parse(storedCookies).SWID,
-  //             'X-ESPN-S2': JSON.parse(storedCookies).espn_s2
-  //           }
-  //         });
-          
-  //         const data = await response.json();
-
-  //         // Parse the league data
-  //         const parsedData = parseUserLeagueData(data, JSON.parse(storedCookies).SWID);
-  //         console.log('Parsed League Data:', parsedData);
-          
-  //         setIsLoggedIn(true);
-  //         setCookies(JSON.parse(storedCookies));
-  //       }
-  //     }
-  //     checkLoginStatus();
-  //   }, [])
-  // );
-
   
-  if (apiResponse) {
+if (apiResponse) {
     return (
-      <>
       <View style={styles.container}>
         <Text style={styles.title}>API Response</Text>
         <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
         <Text style={styles.text}>{JSON.stringify(apiResponse)}</Text>
+        <Button 
+          title="Clear API Response"
+          onPress={() => setApiResponse(null)}
+        />
       </View>
-      <Button 
-        title="Test API"
-        onPress={() => setApiResponse(null)}
-      />
-      </>
     );
   }
 
   if (isLoading) {
-    return <Text>Loading...</Text>;
+    return <View style={styles.container}><Text>Loading...</Text></View>;
   }
   
   if (error) {
-    return <Text>{error}</Text>;
+    return <View style={styles.container}><Text>{error}</Text></View>;
   }
 
   if (isLoggedIn && leagueData) {
     return (
-      <>
       <View style={styles.container}>
-        <Text style={styles.title}>Login Successful!</Text>
-        <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-        <Text style={styles.text}>SWID: {cookies?.SWID}</Text>
-        <Text style={styles.text}>espn_s2: {cookies?.espn_s2}</Text>
+        <Text style={styles.title}>Your Leagues</Text>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}
+        >
+          {Object.entries(leagueData.leagues).map(([leagueId, league]) => (
+            <LeagueCard key={`${leagueId}-${league.teamId}`} league={league} />
+          ))}
+        </ScrollView>
+        <Button 
+          title="Logout"
+          onPress={async() => {
+            console.log("Logging out, deleting Cookies and League Data");
+            setIsLoggedIn(false);
+            setCookies(null);
+            setLeagueData(null);
+            await SecureStore.deleteItemAsync('espnCookies');
+            await AsyncStorage.removeItem('leagueData');
+            await AsyncStorage.removeItem('leagueDataUser');
+          }}
+        />
       </View>
-      <Button 
-        title="Logout"
-        onPress={async() => {
-          console.log("Logging out, deleting Cookies and League Data");
-          setIsLoggedIn(false);
-          setCookies(null);
-          setLeagueData(null);
-          await SecureStore.deleteItemAsync('espnCookies');
-          await AsyncStorage.removeItem('leagueData');
-          await AsyncStorage.removeItem('leagueDataUser');
-        }}
-      />  
-      </>
     );
   }
 
@@ -255,10 +254,19 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 20,
+  },
+  scrollView: {
+    flex: 1,
+    width: '100%',
+  },
+  scrollViewContent: {
+    alignItems: 'center',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
+    marginBottom: 20,
   },
   separator: {
     marginVertical: 30,
